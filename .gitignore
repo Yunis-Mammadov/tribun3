@@ -27,3 +27,5 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+# Prisma generated client
+**/src/generated/prisma/

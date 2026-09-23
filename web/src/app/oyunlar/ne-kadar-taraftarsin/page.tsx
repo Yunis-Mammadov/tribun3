@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import QuizDemo from "../../components/QuizDemo";
+import TeamTriviaGame from "../../components/TeamTriviaGame";
 
 export const metadata: Metadata = {
   title: "Ne Kadar Taraftarsın?",
@@ -38,7 +38,7 @@ export default function FanQuizPage() {
       </p>
 
       <div className="my-10">
-        <QuizDemo seconds={8} />
+        <TeamTriviaGame />
       </div>
 
       <section className="mt-16">

@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum GameType {
+  TEAM_TRIVIA
+  WHO_SCORED
+}
+
+enum GameStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  ABANDONED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  username     String   @unique
+  displayName  String?
+  passwordHash String
+  role         UserRole @default(USER)
+
+  favoriteTeamId String? @db.Uuid
+  favoriteTeam   Team?   @relation("FavoriteTeam", fields: [favoriteTeamId], references: [id], onDelete: SetNull)
+
+  sessions GameSession[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([favoriteTeamId])
+}
+
+model Team {
+  id        String @id @default(uuid()) @db.Uuid
+  slug      String @unique
+  name      String @unique
+  shortName String?
+  logoUrl   String?
+  country   String @default("Türkiye")
+
+  fans      User[]        @relation("FavoriteTeam")
+  questions Question[]
+  sessions  GameSession[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model Game {
+  id          String     @id @default(uuid()) @db.Uuid
+  slug        String     @unique
+  title       String
+  description String
+  type        GameType
+  status      GameStatus @default(DRAFT)
+
+  questionsPerSession Int @default(10)
+  questionTimeSeconds  Int @default(10)
+
+  publishedAt DateTime? @db.Timestamptz(3)
+
+  questions Question[]
+  sessions  GameSession[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([status])
+}
+
+model Question {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  gameId String @db.Uuid
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  teamId String? @db.Uuid
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  prompt      String
+  explanation String?
+  difficulty  Difficulty @default(MEDIUM)
+  metadata    Json?
+  isActive    Boolean    @default(true)
+
+  options          QuestionOption[]
+  sessionQuestions SessionQuestion[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([gameId, isActive])
+  @@index([teamId, isActive])
+}
+
+model QuestionOption {
+  id String @id @default(uuid()) @db.Uuid
+
+  questionId String   @db.Uuid
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  text      String
+  isCorrect Boolean
+  sortOrder Int
+
+  selectedIn SessionQuestion[] @relation("SelectedOption")
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([questionId, sortOrder])
+  @@index([questionId])
+}
+
+model GameSession {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  gameId String @db.Uuid
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Restrict)
+
+  teamId String? @db.Uuid
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  status SessionStatus @default(IN_PROGRESS)
+
+  score          Int @default(0)
+  correctAnswers Int @default(0)
+  totalQuestions Int
+
+  startedAt   DateTime  @default(now()) @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+
+  questions SessionQuestion[]
+
+  @@index([userId, status])
+  @@index([gameId, status])
+  @@index([score])
+}
+
+model SessionQuestion {
+  id String @id @default(uuid()) @db.Uuid
+
+  sessionId String      @db.Uuid
+  session   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  questionId String   @db.Uuid
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  selectedOptionId String?         @db.Uuid
+  selectedOption   QuestionOption? @relation("SelectedOption", fields: [selectedOptionId], references: [id], onDelete: Restrict)
+
+  position Int
+
+  startedAt  DateTime? @db.Timestamptz(3)
+  expiresAt  DateTime? @db.Timestamptz(3)
+  answeredAt DateTime? @db.Timestamptz(3)
+
+  responseTimeMs Int?
+  isCorrect      Boolean?
+  points         Int      @default(0)
+
+  @@unique([sessionId, position])
+  @@unique([sessionId, questionId])
+  @@index([questionId])
+}
