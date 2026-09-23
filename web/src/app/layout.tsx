@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-
+import AuthNav from "../app/components/AuthNav";
 import "./globals.css";
+
 
 const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
 
@@ -55,13 +56,15 @@ export default function RootLayout({
               TRİBÜN
             </Link>
 
-            <nav>
+            <nav className="flex items-center gap-6">
               <Link
                 href="/oyunlar"
                 className="font-medium text-zinc-300 hover:text-white"
               >
                 Oyunlar
               </Link>
+
+              <AuthNav />
             </nav>
           </div>
         </header>

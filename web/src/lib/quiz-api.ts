@@ -96,16 +96,13 @@ async function request<T>(
 
 export async function createQuizSession(
     gameSlug: string,
-    teamSlug: string,
 ) {
     return request<{
         success: true;
         session: QuizSession;
     }>(`/games/${gameSlug}/sessions`, {
         method: "POST",
-        body: JSON.stringify({
-            teamSlug,
-        }),
+        body: JSON.stringify({}),
     });
 }
 

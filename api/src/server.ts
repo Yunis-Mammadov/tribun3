@@ -5,7 +5,13 @@ import express from "express";
 import helmet from "helmet";
 
 import { prisma } from "./lib/prisma.js";
+
+import cookieParser from "cookie-parser";
+
+import { authRouter } from "./routes/auth.routes.js";
 import { quizRouter } from "./routes/quiz.routes.js";
+import { accountRouter } from "./routes/account.routes.js";
+
 
 const app = express();
 
@@ -24,9 +30,23 @@ app.use(
   }),
 );
 
+app.use(express.json({ limit: "1mb" }));
+
+app.use(helmet());
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  }),
+);
 
 app.use(express.json({ limit: "1mb" }));
 
+app.use(cookieParser());
+
+app.use("/api", authRouter);
+app.use("/api", accountRouter);
 app.use("/api", quizRouter);
 
 app.get("/api/health", async (_req, res) => {
@@ -86,6 +106,35 @@ app.get("/api/games", async (_req, res) => {
     res.status(500).json({
       success: false,
       message: "Oyunlar yüklenirken bir hata oluştu.",
+    });
+  }
+});
+
+app.get("/api/teams", async (_req, res) => {
+  try {
+    const teams = await prisma.team.findMany({
+      orderBy: {
+        name: "asc",
+      },
+
+      select: {
+        slug: true,
+        name: true,
+        shortName: true,
+        logoUrl: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      teams,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Takımlar yüklenemedi.",
     });
   }
 });

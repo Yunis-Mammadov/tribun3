@@ -34,6 +34,12 @@ async function proxyRequest(
     headers.set("content-type", contentType);
   }
 
+  const cookie = request.headers.get("cookie");
+
+  if (cookie) {
+    headers.set("cookie", cookie);
+  }
+
   const options: RequestInit = {
     method: request.method,
     headers,
@@ -52,13 +58,23 @@ async function proxyRequest(
 
     const body = await response.text();
 
+    const responseHeaders = new Headers();
+
+    responseHeaders.set(
+      "content-type",
+      response.headers.get("content-type") ??
+      "application/json",
+    );
+
+    const setCookie = response.headers.get("set-cookie");
+
+    if (setCookie) {
+      responseHeaders.set("set-cookie", setCookie);
+    }
+
     return new Response(body, {
       status: response.status,
-      headers: {
-        "content-type":
-          response.headers.get("content-type") ??
-          "application/json",
-      },
+      headers: responseHeaders,
     });
   } catch (error) {
     console.error("Tribün API proxy error:", error);

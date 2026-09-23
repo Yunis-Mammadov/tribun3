@@ -9,12 +9,10 @@ import {
     SessionStatus,
 } from "../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
+import { getAuthenticatedUser } from "../lib/auth-session.js";
 
 export const quizRouter = Router();
 
-const createSessionSchema = z.object({
-    teamSlug: z.string().trim().min(1).optional(),
-});
 
 const answerSchema = z.object({
     sessionQuestionId: z.string().uuid(),
@@ -57,12 +55,12 @@ function calculatePoints(
  */
 quizRouter.post("/games/:slug/sessions", async (req, res) => {
     try {
-        const body = createSessionSchema.safeParse(req.body);
+        const user = await getAuthenticatedUser(req);
 
-        if (!body.success) {
-            return res.status(400).json({
+        if (!user) {
+            return res.status(401).json({
                 success: false,
-                message: "Geçersiz istek.",
+                message: "Oyuna başlamak için giriş yapmalısın.",
             });
         }
 
@@ -82,27 +80,15 @@ quizRouter.post("/games/:slug/sessions", async (req, res) => {
         let teamId: string | null = null;
 
         if (game.type === GameType.TEAM_TRIVIA) {
-            if (!body.data.teamSlug) {
-                return res.status(400).json({
+            if (!user.favoriteTeam) {
+                return res.status(409).json({
                     success: false,
-                    message: "Bu oyun için takım seçimi zorunludur.",
+                    message:
+                        "Bu oyunu oynamak için hesabında bir takım seçmelisin.",
                 });
             }
 
-            const team = await prisma.team.findUnique({
-                where: {
-                    slug: body.data.teamSlug,
-                },
-            });
-
-            if (!team) {
-                return res.status(404).json({
-                    success: false,
-                    message: "Takım bulunamadı.",
-                });
-            }
-
-            teamId = team.id;
+            teamId = user.favoriteTeam.id;
         }
 
         const availableQuestions = await prisma.question.findMany({
@@ -111,6 +97,7 @@ quizRouter.post("/games/:slug/sessions", async (req, res) => {
                 teamId,
                 isActive: true,
             },
+
             select: {
                 id: true,
             },
@@ -119,7 +106,8 @@ quizRouter.post("/games/:slug/sessions", async (req, res) => {
         if (availableQuestions.length < game.questionsPerSession) {
             return res.status(409).json({
                 success: false,
-                message: "Bu oyun için yeterli aktif soru bulunmuyor.",
+                message:
+                    "Takımın için henüz yeterli sayıda aktif soru bulunmuyor.",
                 availableQuestions: availableQuestions.length,
                 requiredQuestions: game.questionsPerSession,
             });
@@ -132,6 +120,7 @@ quizRouter.post("/games/:slug/sessions", async (req, res) => {
 
         const session = await prisma.gameSession.create({
             data: {
+                userId: user.id,
                 gameId: game.id,
                 teamId,
                 totalQuestions: game.questionsPerSession,
